@@ -1,23 +1,69 @@
+# Editor Konfigurationen
 .vscode/**
 .obsidian
 .obsidian/**
 .DS_Store
 
+# Environment und Secret Dateien
 **/.envrc
 **/.env
+secrets/
 
+# Terraform
 **/.terraform
 **/.terraform.lock.hcl
 **/.terraform.tfstate.*
 **/terraform.tfstate
 **/terraform.tfstate.backup
 **/*.auto.tfvars
-
 **/*.auto.pkrvars.hcl
+
+# Packer
 packer-*.log
 packer_cache/
+
+# Images und VMs
 *.iso
 *.box
 *.ova
 
+# Helm
 **/helm-credentials.yaml
+
+# Logs
+*.log
+logs/
+
+# Temporäre Dateien
+*.tmp
+*.swp
+*.swo
+*~
+
+# Docker spezifisch
+.docker/
+
+# Zertifikate und Keys
+*.pem
+*.key
+*.crt
+*_rsa
+*_dsa
+*.gpg
+*.asc
+
+# Datenbanken
+*.db
+*.sqlite
+
+# NodeJS (falls verwendet)
+node_modules/
+npm-debug.log
+.npm/
+
+# Python (falls verwendet)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env/
