@@ -1,0 +1,359 @@
+pageInfo:
+  title: 'CARLs: Home Lab 🖥️🧪'
+  description: Everything at a glance!
+  navLinks:
+    - title: GitHub
+      path: https://github.com/Lissy93/dashy
+      target: newtab
+    - title: Documentation
+      path: https://dashy.to/docs
+      target: newtab
+appConfig:
+  theme: dashy-docs
+  layout: auto
+  iconSize: large
+  language: de
+sections:
+  - name: Netzwerk
+    icon: fas fa-network-wired
+    items:
+      - title: Pi-hole
+        description: AdBlocker
+        icon: hl-pi-hole
+        url: http://${NAS_IP}:8080/admin/
+        target: newtab
+        statusCheck: true
+        id: 0_858_pihole
+      - title: Fritz!Box
+        description: 6591 Cable
+        icon: hl-avm-fritzbox
+        url: https://fritz.box
+        target: newtab
+        statusCheck: true
+        id: 1_858_fritzbox
+      - title: Wireshark
+        description: Packet Sniffer
+        icon: hl-wireshark
+        url: http://${NAS_IP}:3000/
+        target: newtab
+        statusCheck: true
+        id: 2_858_wireshark
+      - title: UniFi Site Manager
+        description: Remote Manager
+        icon: hl-unifi
+        url: https://unifi.ui.com
+        target: newtab
+        statusCheck: true
+        id: 3_858_unifisitemanager
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+  - name: Synology NAS
+    icon: fas fa-server
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: DSM
+        description: DS1821+
+        icon: hl-synology-dsm
+        url: https://${NAS_IP}:5001/?timestamp=1721056707#/signin/password
+        target: newtab
+        statusCheck: true
+        id: 0_1126_dsm
+      - title: DSM
+        description: DS214p
+        icon: hl-synology-dsm
+        url: https://cfn214p.quickconnect.to/#/signin
+        target: newtab
+        statusCheck: true
+        id: 1_1126_dsm
+      - title: DSM
+        description: DS1821+ La33
+        icon: hl-synology-dsm
+        url: http://QuickConnect.to/wa1821
+        target: newtab
+        statusCheck: true
+        id: 2_1126_dsm
+      - title: Portainer.io
+        description: Container Manager
+        icon: hl-portainer
+        url: http://${NAS_IP}:9000/#!/home
+        target: newtab
+        statusCheck: true
+        id: 3_1126_portainerio
+  - name: Media
+    icon: fas fa-icons
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Plex
+        description: Media Library
+        icon: hl-plex
+        url: ' https://app.plex.tv/desktop/?_gl=1*krsjrg*_gcl_au*MTQ2NzkwOTUyNS4xNzM2NDM1NjYz*_ga*MzgyMzUyNjE1LjE3MzY0MzU2NjM.*_ga_G6FQWNSENB*MTczNjQzNTY2My4xLjAuMTczNjQzNTY2My42MC4wLjA.#!/'
+        target: newtab
+        statusCheck: true
+        id: 0_480_plex
+      - title: Photos
+        description: Foto-Cloud
+        icon: hl-synology-photos
+        url: >-
+          https://${NAS_IP}:5001/?timestamp=1721056707&launchApp=SYNO.Foto.AppInstance&SynoToken=l6Iv9Fkp6af32#/shared_space/timeline
+        target: newtab
+        statusCheck: true
+        id: 1_480_photos
+      - title: Jellyfin
+        description: Media Library
+        icon: hl-jellyfin
+        url: http://${NAS_IP}:8096/web/index.html#/home.html
+        target: newtab
+        statusCheck: true
+        id: 2_480_jellyfin
+      - title: Paperless
+        description: Document Management
+        icon: hl-paperless
+        url: >-
+          http://${NAS_IP}:8010/documents?title_content=handwerk&sort=created&reverse=1&page=1
+        target: newtab
+        statusCheck: true
+        id: 3_480_paperless
+      - title: Paperless-AI
+        description: AI Plugin
+        icon: hl-paperless-ai
+        url: http://${NAS_IP}:3747
+        target: newtab
+        statusCheck: true
+        id: 4_480_paperlessai
+  - name: Home Management
+    icon: fas fa-home
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Home Assistant
+        description: Hausautomation
+        icon: hl-home-assistant
+        url: http://${HA_IP}:8123/
+        target: newtab
+        statusCheck: true
+        id: 0_1446_homeassistant
+      - title: Homebridge
+        description: Smart-Home Integration
+        icon: hl-homebridge
+        url: http://${NAS_IP}:8581/
+        target: newtab
+        statusCheck: true
+        id: 1_1446_homebridge
+  - name: Code Management
+    icon: fas fa-code
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: GitHub
+        description: Repositorium
+        icon: hl-github-light
+        url: https://github.com/Morpheus-007
+        target: newtab
+        statusCheck: true
+        id: 0_1432_github
+      - title: GitLab
+        description: Repositorium
+        icon: hl-gitlab
+        url: hl_gitlab
+        target: newtab
+        statusCheck: true
+        id: 1_1432_gitlab
+      - title: Renovate
+        description: Automated dependency updates
+        icon: hl-renovate
+        id: 2_1432_renovate
+  - name: Webseite
+    icon: fas fa-globe
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: carl.photo
+        description: Portfolio Seite
+        icon: fas fa-camera-retro
+        url: https://www.carl.photo/
+        target: newtab
+        statusCheck: true
+        id: 0_824_carlphoto
+      - title: Hetzner
+        description: Cloud Anbieter
+        icon: fas fa-cloud
+        url: https://accounts.hetzner.com/login
+        target: newtab
+        statusCheck: true
+        id: 1_824_hetzner
+      - title: matomo
+        description: Webanalytik
+        icon: hl-matomo
+        url: http://${NAS_IP}:8597/
+        target: newtab
+        statusCheck: true
+        id: 2_824_matomo
+      - title: Strato
+        description: Hosting
+        icon: fas fa-server
+        url: https://webmail.strato.com/appsuite/ui
+        target: newtab
+        statusCheck: true
+        id: 3_824_strato
+      - title: Google Cloud
+        description: carl.photo
+        icon: fas fa-cloud
+        url: >-
+          https://console.cloud.google.com/welcome?project=carl-photo&authuser=1&supportedpurview=project&inv=1&invt=Abshew&pli=1
+        target: newtab
+        statusCheck: true
+        id: 4_824_googlecloud
+  - name: DevOps / Cyber Security
+    icon: fas fa-laptop-code
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Cyber Security
+        description: Coursera
+        icon: fas fa-user-secret
+        url: >-
+          https://www.coursera.org/professional-certificates/google-cybersecurity
+        target: newtab
+        statusCheck: true
+        id: 0_2093_cybersecurity
+      - title: CloudHelden
+        description: Lernplattform
+        icon: fas fa-graduation-cap
+        url: https://cloudhelden-akademie.de/my/
+        target: newtab
+        statusCheck: true
+        id: 1_2093_cloudhelden
+      - title: AZAV
+        description: Anwesenheit
+        icon: fas fa-signature
+        url: https://cloudhelden.app.azav-pilot.de/meinBereich
+        target: newtab
+        statusCheck: true
+        id: 2_2093_azav
+  - name: Monitoring
+    icon: fas fa-heart
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Grafana
+        description: General Monitoring
+        icon: hl-grafana
+        url: http://${NAS_IP}:3003/
+        target: newtab
+        statusCheck: true
+        id: 0_1062_grafana
+      - title: Loki
+        description: Log Management
+        icon: hl-loki
+        url: >-
+          http://${NAS_IP}:3003/d/belr1c6ual5a8d/loki-monitoring-dashboard?orgId=1&from=now-24h&to=now&timezone=browser
+        target: newtab
+        statusCheck: true
+        id: 1_1062_loki
+      - title: Prometheus
+        description: Metric Database
+        icon: hl-prometheus
+        url: http://${NAS_IP}:9090/graph
+        target: newtab
+        statusCheck: true
+        id: 2_1062_prometheus
+      - title: Graylog
+        description: Log Management
+        icon: hl-graylog
+        url: http://${NAS_IP}:9001/system/overview
+        target: newtab
+        statusCheck: true
+        id: 3_1062_graylog
+      - title: Glances
+        description: System Monitoring
+        icon: hl-glances
+        url: http://${NAS_IP}:61208/
+        target: newtab
+        statusCheck: true
+        id: 4_1062_glances
+  - name: Musik
+    icon: fas fa-music
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: SoundCloud
+        description: follow_carl
+        icon: hl-SoundCloud
+        url: https://soundcloud.com/follow_carl
+        target: newtab
+        statusCheck: true
+        id: 0_521_soundcloud
+      - title: SINEE
+        description: Musik Produktion
+        icon: fas fa-music
+        url: https://sinee.de/account/login
+        target: newtab
+        statusCheck: true
+        id: 1_521_sinee
+  - name: AI
+    icon: fas fa-poo-storm
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Open WebUI
+        description: AI Interface
+        icon: hl-openwebui
+        url: http://${NAS_IP}:31000
+        target: newtab
+        statusCheck: true
+        id: 0_138_openwebui
+  - name: Automation
+    icon: fas fa-robot
+    displayData:
+      sortBy: default
+      rows: 1
+      cols: 1
+      collapsed: false
+      hideForGuests: false
+    items:
+      - title: Ansible
+        description: ' IT Automation'
+        icon: hl-ansible
+        id: 0_1057_ansible

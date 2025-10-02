@@ -1,6 +1,6 @@
-# 3
+# Agrar-Dashboard
 
-Configuration files for 3.
+Configuration files for agrar-dashboard.
 
 ## Setup
 

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  anomaly-detector:
+    build: .
+    container_name: anomaly-detector
+    restart: unless-stopped
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - GRAFANA_URL=http://grafana:3000
+      - CHECK_INTERVAL=300
+      - ALERT_THRESHOLD=0.8
+    volumes:
+      - ${DOCKER_DIR}/anomaly-detector/src:/app/src
+      - ${DOCKER_DIR}/anomaly-detector/config:/app/config
+      - ${DOCKER_DIR}/anomaly-detector/data:/app/data
+      - ${DOCKER_DIR}/anomaly-detector/models:/app/models
+      - ${DOCKER_DIR}/anomaly-detector/logs:/app/logs
+    ports:
+      - "8868:8868"  # Jupyter Notebook für ML-Development
+      - "5005:5000"  # Flask API für Anomaly Detection
+    networks:
+      - grafana_monitoring
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  grafana_monitoring:
+    external: true

@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  docker-compose:
+    image: docker/compose:latest
+    container_name: docker-compose
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /volume2/docker:/volume2/docker
+    entrypoint: ["tail", "-f", "/dev/null"]

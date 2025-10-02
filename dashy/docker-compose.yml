@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  dashy:
+    image: lissy93/dashy
+    container_name: dashy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8050:8080"
+    volumes:
+      - ${DOCKER_DIR}/dashy/conf.yml:/app/user-data/conf.yml
+      - ${DOCKER_DIR}/dashy/icons:/app/user-data/item-icons
+    environment:
+      - TZ=${TZ}
+      - NODE_ENV=production
+    healthcheck:
+      test: ['CMD', 'node', '/app/services/healthcheck']
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

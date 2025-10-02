@@ -1,0 +1,231 @@
+name: SBOM Generation Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # Generate SBOM weekly every Monday at 3 AM UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-sbom:
+    name: Generate Software Bill of Materials
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Extract container images
+        id: extract-images
+        run: |
+          echo "Extracting container images from Docker Compose files..."
+          IMAGES=""
+
+          for compose_file in $(find . -name "docker-compose.yml" -o -name "docker-compose.yaml"); do
+            echo "Processing: $compose_file"
+            file_images=$(grep -E "^\s*image:" "$compose_file" | sed 's/.*image://g' | tr -d ' "' | sort -u || true)
+
+            if [ -n "$file_images" ]; then
+              IMAGES="$IMAGES"$'\n'"$file_images"
+            fi
+          done
+
+          UNIQUE_IMAGES=$(echo "$IMAGES" | sort -u | grep -v '^$' || true)
+          echo "Found images:"
+          echo "$UNIQUE_IMAGES"
+
+          echo "images<<EOF" >> $GITHUB_OUTPUT
+          echo "$UNIQUE_IMAGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate SBOM for each image (CycloneDX)
+        run: |
+          mkdir -p sbom/cyclonedx
+          mkdir -p sbom/spdx
+
+          echo "${{ steps.extract-images.outputs.images }}" | while IFS= read -r image; do
+            if [ -z "$image" ]; then
+              continue
+            fi
+
+            echo "Generating SBOM for $image..."
+            safe_name=$(echo "$image" | tr '/:' '_')
+
+            # Generate CycloneDX format
+            syft "$image" \
+              -o cyclonedx-json \
+              --file "sbom/cyclonedx/${safe_name}.json" || echo "Warning: SBOM generation failed for $image"
+
+            # Generate SPDX format
+            syft "$image" \
+              -o spdx-json \
+              --file "sbom/spdx/${safe_name}.json" || echo "Warning: SBOM generation failed for $image"
+          done
+
+      - name: Generate combined SBOM
+        run: |
+          echo "Generating combined SBOM for all services..."
+
+          # Create combined metadata
+          cat > sbom/combined-sbom-metadata.json << EOF
+          {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.4",
+            "serialNumber": "urn:uuid:$(uuidgen)",
+            "version": 1,
+            "metadata": {
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "tools": [
+                {
+                  "vendor": "Anchore",
+                  "name": "Syft"
+                }
+              ],
+              "component": {
+                "type": "application",
+                "name": "homelab",
+                "version": "1.0.0",
+                "description": "Carl's Homelab Infrastructure"
+              }
+            }
+          }
+          EOF
+
+          # Create index of all SBOMs
+          echo "# Software Bill of Materials (SBOM) Index" > sbom/INDEX.md
+          echo "" >> sbom/INDEX.md
+          echo "Generated: $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> sbom/INDEX.md
+          echo "" >> sbom/INDEX.md
+          echo "## CycloneDX Format" >> sbom/INDEX.md
+          echo "" >> sbom/INDEX.md
+
+          for sbom_file in sbom/cyclonedx/*.json; do
+            if [ -f "$sbom_file" ]; then
+              image_name=$(basename "$sbom_file" .json | tr '_' '/')
+              component_count=$(jq '.components | length' "$sbom_file" 2>/dev/null || echo "0")
+              echo "- **$image_name**: $component_count components" >> sbom/INDEX.md
+            fi
+          done
+
+          echo "" >> sbom/INDEX.md
+          echo "## SPDX Format" >> sbom/INDEX.md
+          echo "" >> sbom/INDEX.md
+
+          for sbom_file in sbom/spdx/*.json; do
+            if [ -f "$sbom_file" ]; then
+              image_name=$(basename "$sbom_file" .json | tr '_' '/')
+              package_count=$(jq '.packages | length' "$sbom_file" 2>/dev/null || echo "0")
+              echo "- **$image_name**: $package_count packages" >> sbom/INDEX.md
+            fi
+          done
+
+      - name: Generate SBOM statistics
+        run: |
+          echo "# 📋 SBOM Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generation Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          TOTAL_IMAGES=$(find sbom/cyclonedx -name "*.json" | wc -l)
+          echo "**Total Images**: $TOTAL_IMAGES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## Component Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Components | Packages |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          for sbom_file in sbom/cyclonedx/*.json; do
+            if [ -f "$sbom_file" ]; then
+              image_name=$(basename "$sbom_file" .json | tr '_' '/')
+              component_count=$(jq '.components | length' "$sbom_file" 2>/dev/null || echo "0")
+
+              spdx_file="sbom/spdx/$(basename "$sbom_file")"
+              package_count=$(jq '.packages | length' "$spdx_file" 2>/dev/null || echo "0")
+
+              echo "| \`$image_name\` | $component_count | $package_count |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 SBOMs available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+
+      - name: License compliance check
+        run: |
+          mkdir -p sbom/compliance
+
+          echo "# License Compliance Report" > sbom/compliance/licenses.md
+          echo "" >> sbom/compliance/licenses.md
+          echo "Generated: $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> sbom/compliance/licenses.md
+          echo "" >> sbom/compliance/licenses.md
+
+          # Aggregate all licenses from CycloneDX SBOMs
+          for sbom_file in sbom/cyclonedx/*.json; do
+            if [ -f "$sbom_file" ]; then
+              image_name=$(basename "$sbom_file" .json | tr '_' '/')
+              echo "## $image_name" >> sbom/compliance/licenses.md
+              echo "" >> sbom/compliance/licenses.md
+
+              # Extract license information
+              jq -r '.components[]? | select(.licenses) | .name + " - " + (.licenses[].license.id // .licenses[].license.name // "Unknown")' "$sbom_file" 2>/dev/null >> sbom/compliance/licenses.md || true
+
+              echo "" >> sbom/compliance/licenses.md
+            fi
+          done
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-reports
+          path: sbom/
+          retention-days: 365  # Keep SBOMs for 1 year
+
+      - name: Commit SBOM to repository
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Create sbom branch if it doesn't exist
+          git checkout -B sbom-reports
+
+          # Copy SBOMs to root
+          mkdir -p sbom-archive
+          cp -r sbom/* sbom-archive/
+
+          git add sbom-archive/
+          git commit -m "chore: update SBOM reports [skip ci]" || echo "No changes to commit"
+
+          git push origin sbom-reports --force
+
+      - name: Create SBOM badge
+        run: |
+          mkdir -p .github/badges
+
+          TOTAL_IMAGES=$(find sbom/cyclonedx -name "*.json" | wc -l)
+
+          # Create JSON for shields.io endpoint
+          cat > .github/badges/sbom-badge.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "SBOM",
+            "message": "$TOTAL_IMAGES images",
+            "color": "blue"
+          }
+          EOF
+
+      - name: Upload badge
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-badge
+          path: .github/badges/sbom-badge.json
+          retention-days: 90

@@ -1,6 +1,6 @@
-# 3
+# Anomaly-Detector
 
-Configuration files for 3.
+Configuration files for anomaly-detector.
 
 ## Setup
 

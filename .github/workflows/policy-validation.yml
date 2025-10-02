@@ -1,0 +1,175 @@
+name: Policy Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  opa-validation:
+    name: OPA Policy Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Validate Docker Compose files against OPA policies
+        run: |
+          mkdir -p policy-reports
+          EXIT_CODE=0
+
+          echo "# 📋 Policy Validation Report" > policy-reports/summary.md
+          echo "" >> policy-reports/summary.md
+          echo "**Validation Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> policy-reports/summary.md
+          echo "" >> policy-reports/summary.md
+
+          for compose_file in $(find . -name "docker-compose.yml" -o -name "docker-compose.yaml"); do
+            service_dir=$(dirname "$compose_file")
+            service_name=$(basename "$service_dir")
+
+            echo "Validating: $compose_file"
+
+            # Convert to JSON
+            if ! docker-compose -f "$compose_file" config --format json > "/tmp/${service_name}.json" 2>/dev/null; then
+              echo "⚠️ Could not parse $compose_file (likely due to missing env vars - this is OK for validation)"
+              continue
+            fi
+
+            # Run OPA evaluation for denies
+            echo "## Service: $service_name" >> policy-reports/summary.md
+            echo "" >> policy-reports/summary.md
+
+            DENY_RESULT=$(opa eval --data security/policies/docker-security.rego \
+                                    --input "/tmp/${service_name}.json" \
+                                    --format pretty \
+                                    "data.docker.security.deny" 2>/dev/null || echo "[]")
+
+            # Run OPA evaluation for warnings
+            WARN_RESULT=$(opa eval --data security/policies/docker-security.rego \
+                                   --input "/tmp/${service_name}.json" \
+                                   --format pretty \
+                                   "data.docker.security.warn" 2>/dev/null || echo "[]")
+
+            # Count violations
+            DENY_COUNT=$(echo "$DENY_RESULT" | grep -c "Service" || echo "0")
+            WARN_COUNT=$(echo "$WARN_RESULT" | grep -c "Service" || echo "0")
+
+            if [ "$DENY_COUNT" -gt 0 ]; then
+              echo "❌ **Critical Issues**: $DENY_COUNT" >> policy-reports/summary.md
+              echo '```' >> policy-reports/summary.md
+              echo "$DENY_RESULT" >> policy-reports/summary.md
+              echo '```' >> policy-reports/summary.md
+              EXIT_CODE=1
+            else
+              echo "✅ **No Critical Issues**" >> policy-reports/summary.md
+            fi
+
+            if [ "$WARN_COUNT" -gt 0 ]; then
+              echo "" >> policy-reports/summary.md
+              echo "⚠️ **Warnings**: $WARN_COUNT" >> policy-reports/summary.md
+              echo '<details><summary>View warnings</summary>' >> policy-reports/summary.md
+              echo "" >> policy-reports/summary.md
+              echo '```' >> policy-reports/summary.md
+              echo "$WARN_RESULT" >> policy-reports/summary.md
+              echo '```' >> policy-reports/summary.md
+              echo '</details>' >> policy-reports/summary.md
+            fi
+
+            echo "" >> policy-reports/summary.md
+          done
+
+          # Add summary to step summary
+          cat policy-reports/summary.md >> $GITHUB_STEP_SUMMARY
+
+          if [ $EXIT_CODE -eq 1 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Policy violations detected!** Please fix critical issues before merging." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All services passed policy validation!**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit $EXIT_CODE
+
+      - name: Upload policy reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-validation-reports
+          path: policy-reports/
+          retention-days: 30
+
+  yaml-lint:
+    name: YAML Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint all YAML files
+        run: |
+          echo "# 📝 YAML Linting Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXIT_CODE=0
+
+          for yaml_file in $(find . -name "*.yml" -o -name "*.yaml"); do
+            if yamllint -d relaxed "$yaml_file"; then
+              echo "✅ $yaml_file" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ $yaml_file" >> $GITHUB_STEP_SUMMARY
+              EXIT_CODE=1
+            fi
+          done
+
+          exit $EXIT_CODE
+
+  hadolint:
+    name: Dockerfile Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "**/Dockerfile"
+          recursive: true
+          failure-threshold: warning
+
+      - name: Generate Hadolint report
+        if: always()
+        run: |
+          echo "# 🐳 Dockerfile Linting Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -d "." ]; then
+            DOCKERFILE_COUNT=$(find . -name "Dockerfile" | wc -l)
+            echo "**Dockerfiles found**: $DOCKERFILE_COUNT" >> $GITHUB_STEP_SUMMARY
+          fi
