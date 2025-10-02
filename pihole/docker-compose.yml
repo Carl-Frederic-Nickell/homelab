@@ -39,3 +39,4 @@ services:
 networks:
   pihole_net:
     driver: bridge
+
