@@ -75,7 +75,7 @@ services:
       - "8070:8080"
     networks:
       - monitoring
-      
+
   loki:
     image: grafana/loki:latest
     container_name: loki
@@ -92,7 +92,7 @@ services:
     command: -config.file=/etc/loki/loki-config.yaml -validation.allow-structured-metadata=false
     networks:
       - monitoring
-      
+
   promtail:
     image: grafana/promtail:latest
     container_name: promtail

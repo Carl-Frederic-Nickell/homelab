@@ -29,4 +29,3 @@ services:
       - /volume1/05_Filme:/data/filme
       - /volume1/06_Serien:/data/serien
       - /volume1/07_Videos:/data/videos
-
