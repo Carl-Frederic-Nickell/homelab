@@ -1,0 +1,227 @@
+# Deployment Pipeline (DISABLED - Rename to .yml to activate)
+#
+# Prerequisites:
+# 1. Self-hosted GitHub runner on Synology NAS
+# 2. Docker and Docker Compose installed on NAS
+# 3. SSH access configured
+# 4. .env file on NAS with all required variables
+#
+# To activate:
+# 1. Set up self-hosted runner (see docs/DEPLOYMENT_SETUP.md)
+# 2. Rename this file to deploy-production.yml
+# 3. Push to GitHub
+
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '*/docker-compose.yml'
+      - '*/docker-compose.yaml'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (or "all" for all services)'
+        required: true
+        default: 'all'
+
+permissions:
+  contents: read
+
+jobs:
+  security-gate:
+    name: Security Gate Check
+    runs-on: ubuntu-latest
+    outputs:
+      critical_vulns: ${{ steps.check.outputs.critical_vulns }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run security scan
+        id: scan
+        run: |
+          # Quick security scan before deployment
+          docker pull aquasec/trivy:latest
+
+          CRITICAL_COUNT=0
+
+          for compose_file in $(find . -name "docker-compose.yml"); do
+            images=$(grep -E "^\s*image:" "$compose_file" | sed 's/.*image://g' | tr -d ' "' || true)
+
+            for image in $images; do
+              echo "Scanning $image..."
+
+              # Count critical vulnerabilities
+              CRIT=$(trivy image --severity CRITICAL --format json "$image" 2>/dev/null | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' || echo "0")
+
+              CRITICAL_COUNT=$((CRITICAL_COUNT + CRIT))
+            done
+          done
+
+          echo "critical_vulns=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Check security gate
+        id: check
+        run: |
+          CRITICAL=${{ steps.scan.outputs.critical_vulns }}
+
+          if [ "$CRITICAL" -gt 5 ]; then
+            echo "❌ Security gate FAILED: $CRITICAL critical vulnerabilities found"
+            echo "Deployment blocked. Please fix critical vulnerabilities first."
+            exit 1
+          else
+            echo "✅ Security gate PASSED: $CRITICAL critical vulnerabilities (threshold: 5)"
+          fi
+
+  deploy:
+    name: Deploy to Synology NAS
+    needs: security-gate
+    runs-on: self-hosted  # Runs on your Synology NAS
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine changed services
+        id: changes
+        run: |
+          # Find which services changed
+          CHANGED_SERVICES=""
+
+          if [ "${{ github.event.inputs.service }}" != "" ] && [ "${{ github.event.inputs.service }}" != "all" ]; then
+            # Manual deployment of specific service
+            CHANGED_SERVICES="${{ github.event.inputs.service }}"
+          else
+            # Detect changed services from git diff
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "")
+
+            for file in $CHANGED_FILES; do
+              if [[ $file == */docker-compose.yml ]] || [[ $file == */docker-compose.yaml ]]; then
+                service=$(dirname "$file")
+                CHANGED_SERVICES="$CHANGED_SERVICES $service"
+              fi
+            done
+          fi
+
+          echo "services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+          echo "Deploying services: $CHANGED_SERVICES"
+
+      - name: Backup current state
+        run: |
+          # Create backup before deployment
+          BACKUP_DIR="/volume2/docker/backups/$(date +%Y%m%d_%H%M%S)"
+          mkdir -p "$BACKUP_DIR"
+
+          for service in ${{ steps.changes.outputs.services }}; do
+            if [ -d "/volume2/docker/$service" ]; then
+              echo "Backing up $service..."
+              tar -czf "$BACKUP_DIR/${service}.tar.gz" -C "/volume2/docker" "$service" || true
+            fi
+          done
+
+          echo "BACKUP_DIR=$BACKUP_DIR" >> $GITHUB_ENV
+
+      - name: Deploy services
+        id: deploy
+        run: |
+          EXIT_CODE=0
+
+          for service in ${{ steps.changes.outputs.services }}; do
+            if [ -f "$service/docker-compose.yml" ]; then
+              echo "Deploying $service..."
+
+              cd "$service"
+
+              # Pull latest images
+              docker-compose pull || true
+
+              # Deploy with health check
+              if docker-compose up -d; then
+                echo "✅ $service deployed successfully"
+              else
+                echo "❌ $service deployment failed"
+                EXIT_CODE=1
+              fi
+
+              cd ..
+            fi
+          done
+
+          exit $EXIT_CODE
+
+      - name: Health check
+        if: success()
+        run: |
+          echo "Waiting for services to become healthy..."
+          sleep 30
+
+          # Check if containers are running
+          for service in ${{ steps.changes.outputs.services }}; do
+            cd "$service"
+
+            CONTAINERS=$(docker-compose ps -q)
+
+            for container in $CONTAINERS; do
+              STATUS=$(docker inspect --format='{{.State.Status}}' "$container")
+
+              if [ "$STATUS" != "running" ]; then
+                echo "⚠️ Container $container is not running (status: $STATUS)"
+              else
+                echo "✅ Container $container is healthy"
+              fi
+            done
+
+            cd ..
+          done
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed! Rolling back..."
+
+          for service in ${{ steps.changes.outputs.services }}; do
+            if [ -f "$BACKUP_DIR/${service}.tar.gz" ]; then
+              echo "Rolling back $service..."
+
+              cd "$service"
+              docker-compose down || true
+              cd ..
+
+              # Restore from backup
+              tar -xzf "$BACKUP_DIR/${service}.tar.gz" -C "/volume2/docker"
+
+              cd "$service"
+              docker-compose up -d || true
+              cd ..
+
+              echo "✅ $service rolled back to previous state"
+            fi
+          done
+
+      - name: Cleanup old backups
+        if: always()
+        run: |
+          # Keep only last 5 backups
+          cd /volume2/docker/backups
+          ls -t | tail -n +6 | xargs -r rm -rf
+
+          echo "Cleaned up old backups"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "# 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Services**: ${{ steps.changes.outputs.services }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "**Status**: ✅ Deployment successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status**: ❌ Deployment failed, rolled back" >> $GITHUB_STEP_SUMMARY
+          fi
