@@ -11,8 +11,8 @@ services:
       - "31000:8080"
     environment:
       - TZ=${TZ}
-      - OLLAMA_API_BASE_URL=http://192.168.178.27:11434/api
+      - OLLAMA_API_BASE_URL=http://${OLLAMA_HOST}:11434/api
     volumes:
       - ${DOCKER_DIR}/openwebui:/app/backend/data
     extra_hosts:
-      - "host.docker.internal:192.168.178.27"
+      - "host.docker.internal:${OLLAMA_HOST}"
