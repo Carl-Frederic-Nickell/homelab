@@ -1,0 +1,15 @@
+pageInfo:
+  title: 'CARLs: Home Lab 🖥️🧪'
+  description: Everything at a glance!
+  navLinks:
+    - title: GitHub
+      path: https://github.com/Lissy93/dashy
+      target: newtab
+    - title: Documentation
+      path: https://dashy.to/docs
+      target: newtab
+appConfig:
+  theme: dashy-docs
+  layout: auto
+  iconSize: large
+  language: de

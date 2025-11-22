@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - dmz           # Internet-facing edge network
+      - apps          # Application network
+      - platform      # Platform services network
+      - monitoring    # Monitoring stack network
+      - management    # Management network
+    ports:
+      - "80:80"       # HTTP
+      - "443:443"     # HTTPS
+      - "8080:8080"   # Dashboard (disable in production)
+    environment:
+      # Cloudflare API for DNS Challenge (Let's Encrypt)
+      - CF_API_EMAIL=${CF_API_EMAIL}
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+
+      # Timezone
+      - TZ=${TZ:-UTC}
+    volumes:
+      # Static configuration
+      - ./traefik.yml:/traefik.yml:ro
+
+      # Dynamic configuration
+      - ./config:/config:ro
+
+      # Certificates storage
+      - ./acme.json:/acme.json
+
+      # Docker socket for container discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # Logs directory
+      - ./logs:/logs
+    labels:
+      # Enable Traefik for this container
+      - "traefik.enable=true"
+
+      # Dashboard configuration
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+
+      # Secure dashboard with Authentik (if deployed)
+      - "traefik.http.routers.traefik-dashboard.middlewares=authentik@file"
+
+      # Alternative: Basic auth (uncomment if not using Authentik)
+      # - "traefik.http.routers.traefik-dashboard.middlewares=traefik-auth"
+      # - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_USERS}"
+
+networks:
+  dmz:
+    external: true
+  apps:
+    external: true
+  platform:
+    external: true
+  monitoring:
+    external: true
+  management:
+    external: true

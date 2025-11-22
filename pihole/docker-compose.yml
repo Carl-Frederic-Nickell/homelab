@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin
+      - DNSMASQ_USER=root
+      - FTL_CMD=no-daemon
+      - phpver=php
+      - PHP_ERROR_LOG=/var/log/lighttpd/error-pihole.log
+      - IPv6=True
+      - S6_KEEP_ENV=1
+      - S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+      - S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+      - FTLCONF_LOCAL_IPV4=${NAS_IP}
+      - WEBPASSWORD=${PIHOLE_PASSWORD}
+      - WEB_PORT=8080
+      - DNSMASQ_LISTENING=local
+    volumes:
+      - ${DOCKER_DIR}/pihole/pihole-configs:/etc/pihole:rw
+      - ${DOCKER_DIR}/pihole/dnsmasq.d-configs:/etc/dnsmasq.d:rw
+      - ${DOCKER_DIR}/pihole/logs:/var/logs/pihole:rw
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "8080:80/tcp"
+    networks:
+      - pihole_net
+    logging:
+      driver: gelf
+      options:
+        tag: "pihole"
+
+networks:
+  pihole_net:
+    driver: bridge
+

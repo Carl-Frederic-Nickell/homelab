@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # Redis Cache/Broker für Paperless
+  broker:
+    image: redis:7
+    container_name: paperless_redis
+    restart: unless-stopped
+    volumes:
+      - ${DOCKER_DIR}/paperless/redis:/data
+
+  # PostgreSQL Datenbank
+  db:
+    image: postgres:17
+    container_name: paperless_db
+    restart: unless-stopped
+    volumes:
+      - ${DOCKER_DIR}/paperless/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: carl
+      POSTGRES_PASSWORD: ${PASSWORD}
+
+  # Paperless-ngx Hauptanwendung
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless_web
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+    ports:
+      - "8010:8000"  # Externes Interface auf Port 8010
+    volumes:
+      - ${DOCKER_DIR}/paperless/data:/usr/src/paperless/data
+      - ${DOCKER_DIR}/paperless/media:/usr/src/paperless/media
+      - ${DOCKER_DIR}/paperless/export:/usr/src/paperless/export
+      - ${DOCKER_DIR}/paperless/consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      PAPERLESS_DBUSER: carl
+      PAPERLESS_DBPASS: KvH*k8EEPE_436hQmyif
+      USERMAP_UID: 1026
+      USERMAP_GID: 100
+      PAPERLESS_TIME_ZONE: Europe/Berlin
+      PAPERLESS_ADMIN_USER: carl
+      PAPERLESS_ADMIN_PASSWORD: ${PASSWORD}
+      PAPERLESS_OCR_LANGUAGE: deu+eng
+      PAPERLESS_OCR_CLEAN: "clean"
+      PAPERLESS_OCR_DESKEW: "true"
+      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
+      PAPERLESS_CONSUMER_IGNORE_PATTERNS: >
+        [
+          ".DS_Store",
+          ".DS_STORE",
+          "._*",
+          ".stfolder/*",
+          ".stversions/*",
+          ".localized/*",
+          "desktop.ini",
+          "@eaDir",
+          "@eaDir/*",
+          "@eaDir/**/*",
+          "*@SynoResource",
+          "*@SynoEAStream",
+          "SYNO@*",
+          "*/SYNO@*"
+        ]
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+
+  # Paperless-AI für KI-basierte Dokumentenanalyse
+  paperless-ai:
+    image: clusterzx/paperless-ai:latest
+    container_name: paperless_ai
+    restart: unless-stopped
+    depends_on:
+      - webserver
+    ports:
+      - "3747:3000"
+    volumes:
+      - ${DOCKER_DIR}/paperless-ai/data:/app/data
+      - ${DOCKER_DIR}/paperless/consume:/app/consume
+    environment:
+      - PUID=1026
+      - PGID=100
+      - PAPERLESS_URL=http://paperless_web:8000  # Interne Container-Kommunikation (bleibt 8000)
+      - PAPERLESS_USERNAME=${PAPERLESS_USERNAME}
+      - PAPERLESS_PASSWORD=${PAPERLESS_PASSWORD}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://192.168.1.100:11434}
+      - PAPERLESS_OCR_LANGUAGE=deu+eng
+      - PAPERLESS_CONSUMER_DELETE_DUPLICATES=true
+      - PAPERLESS_CONSUMER_RECURSIVE=true
+      - TZ=Europe/Berlin
+
+  # Office-Dokument Konvertierung
+  gotenberg:
+    image: gotenberg/gotenberg:7
+    container_name: paperless_gotenberg
+    restart: unless-stopped
+    ports:
+      - "3000"
+
+  # Text-Extraktion aus Dokumenten
+  tika:
+    image: apache/tika:2.9.1.0
+    container_name: paperless_tika
+    restart: unless-stopped
+    ports:
+      - "9998:9998"

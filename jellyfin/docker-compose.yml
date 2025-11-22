@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: jellyfin
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    network_mode: 'host'
+    environment:
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=http://${NAS_IP}:8096
+    volumes:
+      - ${DOCKER_DIR}/jellyfin/config:/config
+      - ${DOCKER_DIR}/jellyfin/cache:/cache
+      - ${MEDIA_DIR}/03_Fotos:/media/Fotos
+      - ${MEDIA_DIR}/04_Musik:/media/Musik
+      - ${MEDIA_DIR}/05_Filme:/media/Filme
+      - ${MEDIA_DIR}/06_Serien:/media/Serien
+      - ${MEDIA_DIR}/07_Videos:/media/Videos
+    ports:
+      - "8096:8096"

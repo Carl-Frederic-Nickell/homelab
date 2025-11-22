@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Authentik
+  authentik-postgresql:
+    image: postgres:16-alpine
+    container_name: authentik-postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authentik"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=authentik
+      - POSTGRES_PASSWORD=${AUTHENTIK_POSTGRES_PASSWORD}
+      - POSTGRES_DB=authentik
+    volumes:
+      - authentik_postgres_data:/var/lib/postgresql/data
+    networks:
+      - authentik_network
+
+  # Redis Cache for Authentik
+  authentik-redis:
+    image: redis:7-alpine
+    container_name: authentik-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      redis-server
+      --requirepass ${AUTHENTIK_REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - authentik_redis_data:/data
+    networks:
+      - authentik_network
+
+  # Authentik Server - Main application
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.8
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      # Database Configuration
+      - AUTHENTIK_POSTGRESQL__HOST=authentik-postgresql
+      - AUTHENTIK_POSTGRESQL__USER=authentik
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${AUTHENTIK_POSTGRES_PASSWORD}
+
+      # Redis Configuration
+      - AUTHENTIK_REDIS__HOST=authentik-redis
+      - AUTHENTIK_REDIS__PASSWORD=${AUTHENTIK_REDIS_PASSWORD}
+
+      # Security Keys
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
+
+      # Email Configuration (Optional)
+      - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST:-localhost}
+      - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT:-25}
+      - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USERNAME:-}
+      - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASSWORD:-}
+      - AUTHENTIK_EMAIL__USE_TLS=${EMAIL_USE_TLS:-false}
+      - AUTHENTIK_EMAIL__USE_SSL=${EMAIL_USE_SSL:-false}
+      - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM:-noreply@example.com}
+
+      # General Configuration
+      - AUTHENTIK_LOG_LEVEL=${LOG_LEVEL:-info}
+      - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+      - AUTHENTIK_DISABLE_UPDATE_CHECK=false
+
+      # Bootstrap Configuration (Optional)
+      - AUTHENTIK_BOOTSTRAP_PASSWORD=${AUTHENTIK_BOOTSTRAP_PASSWORD:-}
+      - AUTHENTIK_BOOTSTRAP_TOKEN=${AUTHENTIK_BOOTSTRAP_TOKEN:-}
+      - AUTHENTIK_BOOTSTRAP_EMAIL=${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@example.com}
+    volumes:
+      - ./media:/media
+      - ./templates:/templates
+    ports:
+      - "9000:9000"  # HTTP API
+      - "9443:9443"  # HTTPS API (if configured)
+    depends_on:
+      - authentik-postgresql
+      - authentik-redis
+    networks:
+      - authentik_network
+    labels:
+      # Traefik Integration
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls=true"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+
+      # Traefik Forward Auth Middleware
+      - "traefik.http.middlewares.authentik.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+
+  # Authentik Worker - Background tasks
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.8
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      # Database Configuration
+      - AUTHENTIK_POSTGRESQL__HOST=authentik-postgresql
+      - AUTHENTIK_POSTGRESQL__USER=authentik
+      - AUTHENTIK_POSTGRESQL__NAME=authentik
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${AUTHENTIK_POSTGRES_PASSWORD}
+
+      # Redis Configuration
+      - AUTHENTIK_REDIS__HOST=authentik-redis
+      - AUTHENTIK_REDIS__PASSWORD=${AUTHENTIK_REDIS_PASSWORD}
+
+      # Security Keys
+      - AUTHENTIK_SECRET_KEY=${AUTHENTIK_SECRET_KEY}
+
+      # Email Configuration (Optional)
+      - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST:-localhost}
+      - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT:-25}
+      - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USERNAME:-}
+      - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASSWORD:-}
+      - AUTHENTIK_EMAIL__USE_TLS=${EMAIL_USE_TLS:-false}
+      - AUTHENTIK_EMAIL__USE_SSL=${EMAIL_USE_SSL:-false}
+      - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM:-noreply@example.com}
+
+      # General Configuration
+      - AUTHENTIK_LOG_LEVEL=${LOG_LEVEL:-info}
+      - AUTHENTIK_ERROR_REPORTING__ENABLED=false
+    volumes:
+      - ./media:/media
+      - ./certs:/certs
+      - ./templates:/templates
+    depends_on:
+      - authentik-postgresql
+      - authentik-redis
+    networks:
+      - authentik_network
+
+networks:
+  authentik_network:
+    driver: bridge
+
+volumes:
+  authentik_postgres_data:
+  authentik_redis_data:

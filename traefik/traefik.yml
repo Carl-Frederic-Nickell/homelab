@@ -1,0 +1,108 @@
+# Traefik Static Configuration
+
+# API and Dashboard
+api:
+  dashboard: true
+  debug: false
+
+# Entry Points
+entryPoints:
+  # HTTP Entry Point
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  # HTTPS Entry Point
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "*.${DOMAIN}"
+            sans:
+              - "${DOMAIN}"
+    # Optional: Add security headers middleware
+    http:
+      middlewares:
+        - security-headers@file
+
+# Docker Provider
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: traefik_proxy
+    watch: true
+
+  # File Provider for additional configurations
+  file:
+    directory: /config
+    watch: true
+
+# Certificate Resolvers
+certificatesResolvers:
+  # Cloudflare DNS Challenge
+  cloudflare:
+    acme:
+      email: ${ACME_EMAIL}
+      storage: /acme.json
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
+        delayBeforeCheck: 30
+      # Use Let's Encrypt Staging for testing
+      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+
+  # HTTP Challenge (Alternative)
+  letsencrypt:
+    acme:
+      email: ${ACME_EMAIL}
+      storage: /acme.json
+      httpChallenge:
+        entryPoint: web
+      # Use Let's Encrypt Staging for testing
+      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+
+# Logging
+log:
+  level: INFO
+  filePath: /logs/traefik.log
+  format: json
+
+# Access Logs
+accessLog:
+  filePath: /logs/access.log
+  format: json
+  filters:
+    statusCodes:
+      - "200-299"
+      - "400-499"
+      - "500-599"
+
+# Metrics (Prometheus)
+metrics:
+  prometheus:
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+    addEntryPointsLabels: true
+    addServicesLabels: true
+    addRoutersLabels: true
+
+# Ping (Health Check)
+ping:
+  entryPoint: web
+
+# Global configuration
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false

@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:4.4
+    container_name: graylog_mongo
+    restart: unless-stopped
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${DOCKER_DIR}/graylog/mongo:/data/db
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.2
+    container_name: graylog_elasticsearch
+    restart: unless-stopped
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ}
+      - http.host=0.0.0.0
+      - transport.host=localhost
+      - network.host=0.0.0.0
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+    volumes:
+      - ${DOCKER_DIR}/graylog/elasticsearch:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  graylog:
+    image: graylog/graylog:4.3
+    container_name: graylog
+    restart: unless-stopped
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - mongo
+      - elasticsearch
+    environment:
+      - TZ=${TZ}
+      - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD_SECRET}
+      - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_ROOT_PASSWORD_SHA2}
+      - GRAYLOG_HTTP_EXTERNAL_URI=${GRAYLOG_HTTP_EXTERNAL_URI}
+      - GRAYLOG_HTTP_BIND_ADDRESS=0.0.0.0:9000
+      - GRAYLOG_ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - GRAYLOG_MONGODB_URI=mongodb://mongo/graylog
+      - GRAYLOG_ROOT_TIMEZONE=${TZ}
+      - GRAYLOG_ELASTICSEARCH_SHARDS=1
+      - GRAYLOG_ELASTICSEARCH_REPLICAS=0
+      - GRAYLOG_ALLOW_LEADING_WILDCARD_SEARCHES=true
+      - GRAYLOG_ALLOW_HIGHLIGHTING=true
+      - GRAYLOG_NODE_ID_FILE=/usr/share/graylog/data/node-id
+      - GRAYLOG_SERVER_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9001:9000"
+      - "12201:12201/udp"
+      - "1514:1514/tcp"
+      - "1514:1514/udp"
+    volumes:
+      - ${DOCKER_DIR}/graylog/data:/usr/share/graylog/data
+
+networks:
+  default:
+    driver: bridge

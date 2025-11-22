@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  homebridge:
+    image: homebridge/homebridge:latest
+    container_name: homebridge
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - HOMEBRIDGE_APT_PKG_VERSION=v1.4.8
+      - FFMPEG_VERSION=v2.1.7
+      - S6_OVERLAY_VERSION=3.2.0.2
+      - S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+      - S6_KEEP_ENV=1
+      - ENABLE_AVAHI=1
+      - USER=root
+      - HOMEBRIDGE_APT_PACKAGE=1
+      - UIX_CUSTOM_PLUGIN_PATH=/var/lib/homebridge/node_modules
+      - HOME=/home/homebridge
+      - npm_config_prefix=/opt/homebridge
+    volumes:
+      - ${DOCKER_DIR}/homebridge:/homebridge
+    privileged: false

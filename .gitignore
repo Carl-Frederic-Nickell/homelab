@@ -1,0 +1,98 @@
+# Environment Files
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+
+# Secrets and Certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+acme.json
+ssl/
+certs/
+certificates/
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# Log Files
+*.log
+logs/
+*.out
+*.err
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker Files
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+
+# Configuration with Secrets
+config.json
+config.yaml
+config.yml
+!config.example.*
+settings.json
+!settings.example.*
+
+# Application Data
+data/
+volumes/
+postgres-data/
+redis-data/
+opensearch-data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+!terraform.tfvars.example
+
+# Ansible
+*.retry
+ansible-vault-password
+
+# Custom
+personal/
+private/
+credentials/
+tokens/

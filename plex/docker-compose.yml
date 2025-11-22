@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  plex:
+    image: plexinc/pms-docker:latest
+    container_name: plex
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+      - "32400:32400"               # Plex Web UI & API
+      - "32469:32469"               # DLNA
+      # - "1900:1900/udp"             # DLNA/UPnP
+      # - "5353:5353/udp"             # Bonjour/Avahi
+      - "32410:32410/udp"           # GDM network discovery
+      - "32412:32412/udp"
+      - "32413:32413/udp"
+      - "32414:32414/udp"
+    environment:
+      - TZ=Europe/Berlin
+      # - PLEX_CLAIM=juQDZGXi3ixbFUNUgakg
+      - ADVERTISE_IP=http://${NAS_IP}:32400/
+      # - ADVERTISE_IP=https://192-168-178-121.plex.direct:32400/
+      - PLEX_UID=1026              # Synology-UID von deinem Benutzer (bitte prüfen)
+      - PLEX_GID=100               # 'users'-Gruppe
+    volumes:
+      - ${DOCKER_DIR}/plex/config:/config
+      - /volume1/03_Fotos:/data/fotos
+      - /volume1/04_Musik:/data/musik
+      - /volume1/05_Filme:/data/filme
+      - /volume1/06_Serien:/data/serien
+      - /volume1/07_Videos:/data/videos

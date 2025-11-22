@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Wazuh Manager - Central management and analysis server
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.9.2
+    container_name: wazuh-manager
+    hostname: wazuh-manager
+    restart: unless-stopped
+    environment:
+      - INDEXER_URL=https://wazuh-indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD}
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+    ports:
+      - "1514:1514"     # Agent connection port
+      - "1515:1515"     # Agent enrollment port
+      - "514:514/udp"   # Syslog
+      - "55000:55000"   # Wazuh API
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      - wazuh-indexer-certs:/etc/ssl
+    networks:
+      - wazuh_network
+
+  # Wazuh Indexer - OpenSearch-based data storage and indexing
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:4.9.2
+    container_name: wazuh-indexer
+    hostname: wazuh-indexer
+    restart: unless-stopped
+    environment:
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - INDEXER_PASSWORD=${WAZUH_INDEXER_PASSWORD}
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=false
+      - cluster.name=wazuh-cluster
+      - node.name=wazuh-indexer
+      - network.host=0.0.0.0
+      - cluster.initial_master_nodes=wazuh-indexer
+      - plugins.security.ssl.http.enabled=true
+      - plugins.security.ssl.http.pemcert_filepath=/usr/share/opensearch/config/certs/wazuh-indexer.pem
+      - plugins.security.ssl.http.pemkey_filepath=/usr/share/opensearch/config/certs/wazuh-indexer-key.pem
+      - plugins.security.ssl.http.pemtrustedcas_filepath=/usr/share/opensearch/config/certs/root-ca.pem
+      - plugins.security.ssl.transport.pemcert_filepath=/usr/share/opensearch/config/certs/wazuh-indexer.pem
+      - plugins.security.ssl.transport.pemkey_filepath=/usr/share/opensearch/config/certs/wazuh-indexer-key.pem
+      - plugins.security.ssl.transport.pemtrustedcas_filepath=/usr/share/opensearch/config/certs/root-ca.pem
+      - plugins.security.ssl.transport.enforce_hostname_verification=false
+      - plugins.security.authcz.admin_dn="CN=admin,OU=Wazuh,O=Wazuh,L=California,C=US"
+      - compatibility.override_main_response_version=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"  # OpenSearch API
+    volumes:
+      - wazuh-indexer-data:/var/lib/opensearch
+      - wazuh-indexer-certs:/usr/share/opensearch/config/certs
+      - ./indexer/opensearch.yml:/usr/share/opensearch/config/opensearch.yml
+    networks:
+      - wazuh_network
+
+  # Wazuh Dashboard - Web UI for visualization and management
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:4.9.2
+    container_name: wazuh-dashboard
+    hostname: wazuh-dashboard
+    restart: unless-stopped
+    environment:
+      - OPENSEARCH_HOSTS=https://wazuh-indexer:9200
+      - WAZUH_API_URL=https://wazuh-manager:55000
+      - DASHBOARD_USERNAME=admin
+      - DASHBOARD_PASSWORD=${WAZUH_DASHBOARD_PASSWORD}
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${WAZUH_API_PASSWORD}
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/usr/share/opensearch-dashboards/config/certs/wazuh-dashboard.pem
+      - SERVER_SSL_KEY=/usr/share/opensearch-dashboards/config/certs/wazuh-dashboard-key.pem
+      - OPENSEARCH_SSL_VERIFICATIONMODE=certificate
+      - OPENSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/opensearch-dashboards/config/certs/root-ca.pem
+      - OPENSEARCH_REQUESTHEADERSWHITELIST='["securitytenant","authorization"]'
+    ports:
+      - "5601:5601"  # Wazuh Dashboard Web UI
+    volumes:
+      - wazuh-dashboard-certs:/usr/share/opensearch-dashboards/config/certs
+      - wazuh-dashboard-config:/usr/share/opensearch-dashboards/config
+      - wazuh-dashboard-custom:/usr/share/opensearch-dashboards/plugins/wazuh/public/assets/custom
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    networks:
+      - wazuh_network
+    labels:
+      # Traefik integration (if using Traefik reverse proxy)
+      - "traefik.enable=true"
+      - "traefik.http.routers.wazuh.rule=Host(`wazuh.${DOMAIN}`)"
+      - "traefik.http.routers.wazuh.entrypoints=websecure"
+      - "traefik.http.routers.wazuh.tls=true"
+      - "traefik.http.services.wazuh.loadbalancer.server.port=5601"
+
+networks:
+  wazuh_network:
+    driver: bridge
+
+volumes:
+  # Wazuh Manager volumes
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  filebeat_etc:
+  filebeat_var:
+
+  # Wazuh Indexer volumes
+  wazuh-indexer-data:
+  wazuh-indexer-certs:
+
+  # Wazuh Dashboard volumes
+  wazuh-dashboard-certs:
+  wazuh-dashboard-config:
+  wazuh-dashboard-custom:

@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  wireshark:
+    image: lscr.io/linuxserver/wireshark:latest
+    container_name: wireshark
+    restart: no
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    environment:
+      - TZ=${TZ}
+      - PUID=${PAPERLESS_UID}
+      - PGID=${PAPERLESS_GID}
+    volumes:
+      - ${DOCKER_DIR}/wireshark/config:/config
+      - ${DOCKER_DIR}/wireshark/captures:/captures
+    ports:
+      - "${WIRESHARK_PORT}:3000"  # WebUI Port

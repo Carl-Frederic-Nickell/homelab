@@ -1,0 +1,12 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /pihole-logs/pihole.log
+  fields:
+    type: pihole
+    tag: pihole
+  fields_under_root: true
+
+output.logstash:
+  hosts: ["${NAS_IP}:5044"]
