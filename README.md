@@ -3,9 +3,22 @@
 [![Docker](https://img.shields.io/badge/Docker-25.0-2496ED?logo=docker)](https://docker.com)
 [![Security](https://img.shields.io/badge/Security-First-red?logo=shield)](https://github.com)
 [![Monitoring](https://img.shields.io/badge/Monitoring-24%2F7-green?logo=grafana)](https://grafana.com)
+[![Wazuh](https://img.shields.io/badge/Wazuh-4.9.2-orange)](https://wazuh.com)
+[![BSI](https://img.shields.io/badge/BSI_Grundschutz-Aligned-blue)](https://www.bsi.bund.de/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-> Production-grade security infrastructure demonstrating enterprise DevSecOps, monitoring, and zero-trust architecture patterns. Currently protecting 3 production servers with 500+ attacks detected and mitigated in the first 24 hours of deployment.
+> Production-grade security infrastructure demonstrating enterprise DevSecOps, monitoring, and zero-trust architecture patterns. **Currently protecting 4 endpoints with 693 SSH attacks detected and blocked** in production environment.
+
+## 🎯 Featured Security Project
+
+**[SentryLab - Production SIEM Implementation →](https://github.com/Carl-Frederic-Nickell/sentry-lab)**
+
+Real-world security monitoring showcase:
+- **693 SSH brute force attacks detected** from 37 unique IPs
+- **2,404 vulnerabilities tracked** (26 critical)
+- **Multi-platform monitoring**: Linux, macOS, Windows
+- **Custom detection rules** with MITRE ATT&CK mapping
+- **<5 second detection latency** with automated response
 
 ## 🎯 Overview
 
@@ -16,11 +29,15 @@ This repository contains a complete enterprise security homelab infrastructure w
 | Category | Metric | Value |
 |----------|---------|--------|
 | **Scale** | Services Deployed | 30+ |
-| **Security** | Attacks Detected (24h) | 500+ |
-| **Availability** | Uptime | 99.9% |
+| **Security** | Total Attacks Detected | 693 |
+| **Security** | Unique Threat Actors | 37 IPs |
+| **Security** | Vulnerabilities Tracked | 2,404 (26 critical) |
+| **Availability** | SIEM Uptime | 99.9% |
 | **Performance** | Detection Latency | <5 seconds |
+| **Performance** | Automated Response Time | <7 seconds |
+| **Monitoring** | Active Endpoints | 4 (Linux, macOS, Windows) |
 | **Monitoring** | Metrics Collected | 1M+/day |
-| **Compliance** | Frameworks Supported | 5+ |
+| **Compliance** | Frameworks | BSI, CIS, NIST, OWASP, GDPR |
 
 ## 🏗 Architecture
 
@@ -82,12 +99,13 @@ graph TB
 
 ### Core Security Services
 
-| Service | Purpose | Status | Documentation |
-|---------|---------|--------|---------------|
-| **[Wazuh](./wazuh)** | SIEM & XDR Platform | ✅ Production | [README](./wazuh/README.md) |
-| **[Authentik](./authentik)** | Identity Provider & SSO | ✅ Production | [README](./authentik/README.md) |
-| **[Traefik](./traefik)** | Reverse Proxy & WAF | ✅ Production | [README](./traefik/README.md) |
-| **[Pi-hole](./pihole)** | DNS Filtering & Ad Blocking | ✅ Production | [Setup](./pihole/docker-compose.yml) |
+| Service | Purpose | Status | Production Results | Documentation |
+|---------|---------|--------|-------------------|---------------|
+| **[Wazuh](./wazuh)** | SIEM & XDR Platform | ✅ Production | 693 attacks detected, 2,404 CVEs tracked | **[Live Demo →](https://github.com/Carl-Frederic-Nickell/sentry-lab)** |
+| **[Authentik](./authentik)** | Identity Provider & SSO | ✅ Production | 13+ apps protected, MFA enabled | [README](./authentik/README.md) |
+| **[Traefik](./traefik)** | Reverse Proxy & WAF | ✅ Production | TLS 1.2+, rate limiting active | [README](./traefik/README.md) |
+| **[Pi-hole](./pihole)** | DNS Filtering & Security | ✅ Production | DNS-level threat blocking | [Setup](./pihole/docker-compose.yml) |
+| **[Fail2ban](https://github.com/Carl-Frederic-Nickell/sentry-lab)** | Intrusion Prevention | ✅ Production | <7s automated response time | [Integration Docs](https://github.com/Carl-Frederic-Nickell/sentry-lab) |
 
 ### Security Features Implemented
 
@@ -128,7 +146,7 @@ graph TB
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/homelab.git
+git clone https://github.com/Carl-Frederic-Nickell/homelab.git
 cd homelab
 ```
 
@@ -213,29 +231,35 @@ openssl rand -base64 32
 | Homebridge | Automation | 8581 | HomeKit bridge |
 | Dashy | Dashboard | 4000 | Service dashboard |
 
-## 🎯 Use Cases
+## 🎯 Use Cases & Demonstrations
 
-This infrastructure demonstrates capabilities for:
+This infrastructure provides real-world demonstrations for:
 
-- **Security Operations Center (SOC)**
-  - Real-time threat detection
-  - Incident response
-  - Compliance monitoring
+### Security Operations Center (SOC)
+- ✅ **Real-time threat detection** - 693 SSH attacks detected in production
+- ✅ **Incident response** - [Documented incident reports](https://github.com/Carl-Frederic-Nickell/sentry-lab/tree/main/incidents)
+- ✅ **Compliance monitoring** - BSI Grundschutz module mapping
+- ✅ **Vulnerability management** - 2,404 CVEs tracked with prioritization
+- ✅ **MITRE ATT&CK framework** - Integrated threat intelligence mapping
 
-- **DevSecOps Pipeline**
-  - Secure CI/CD
-  - Container security
-  - Infrastructure as Code
+### DevSecOps Pipeline
+- ✅ **Secure CI/CD** - Automated security scanning in deployment pipeline
+- ✅ **Container security** - Trivy vulnerability scanning for all images
+- ✅ **Infrastructure as Code** - Docker Compose orchestration
+- ✅ **Secrets management** - Environment variable-based configuration
+- ✅ **Policy enforcement** - OPA security policies
 
-- **Identity Management**
-  - Enterprise SSO
-  - Multi-factor authentication
-  - RBAC implementation
+### Identity & Access Management
+- ✅ **Enterprise SSO** - Authentik protecting 13+ applications
+- ✅ **Multi-factor authentication** - TOTP and WebAuthn support
+- ✅ **RBAC implementation** - Role-based access control across services
+- ✅ **Zero-trust networking** - Tailscale VPN with subnet routing
 
-- **Compliance & Governance**
-  - Audit logging
-  - Policy enforcement
-  - BSI Grundschutz ready
+### Compliance & Governance
+- ✅ **Audit logging** - Centralized logging with Loki
+- ✅ **Policy enforcement** - Automated compliance checking
+- ✅ **BSI Grundschutz** - German federal security standard alignment
+- ✅ **Evidence collection** - Immutable audit trails for investigations
 
 ## 📚 Documentation
 
@@ -256,12 +280,25 @@ Each service directory contains:
 
 ## 📊 Compliance & Standards
 
-This infrastructure aligns with:
-- BSI Grundschutz (German Federal Security Standard)
-- CIS Docker Benchmark
-- NIST Cybersecurity Framework
-- OWASP Best Practices
-- GDPR Requirements
+This infrastructure aligns with international security frameworks:
+
+### Standards Implemented
+
+| Framework | Coverage | Status |
+|-----------|----------|--------|
+| **BSI IT-Grundschutz** | German Federal Security Standard | 🟢 Aligned |
+| **CIS Docker Benchmark** | Container security hardening | 🟢 Implemented |
+| **NIST Cybersecurity Framework** | Risk management & controls | 🟢 Mapped |
+| **OWASP Top 10** | Web application security | 🟢 Protected |
+| **GDPR** | Data protection requirements | 🟢 Compliant |
+| **MITRE ATT&CK** | Threat detection & mapping | 🟢 Integrated |
+
+**BSI Grundschutz Modules Covered:**
+- SYS.1.1 - General Server Security
+- APP.3.2 - Web Server Hardening
+- NET.1.1 - Network Architecture
+- OPS.1.1.3 - Patch & Change Management
+- DER.2.1 - Security Incident Treatment
 
 ## 🤝 Contributing
 
@@ -273,8 +310,11 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 📞 Contact
 
-- **GitHub**: [@yourusername](https://github.com/yourusername)
-- **LinkedIn**: [Your Profile](https://linkedin.com/in/yourprofile)
+**Carl-Frederic Nickell** - Security Engineer
+
+- **GitHub**: [@Carl-Frederic-Nickell](https://github.com/Carl-Frederic-Nickell)
+- **Security Portfolio**: [SentryLab SIEM Implementation](https://github.com/Carl-Frederic-Nickell/sentry-lab)
+- **LinkedIn**: [linkedin.com/in/carl-frederic-nickell](https://linkedin.com/in/carl-frederic-nickell)
 
 ---
 
