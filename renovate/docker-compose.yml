@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  renovate:
+    image: ghcr.io/mend/renovate-ce:8.15.1-full
+    container_name: renovate
+    restart: unless-stopped
+    entrypoint: ["/entrypoint.sh"]
+    command: ["node", "src/community.js"]
+
+    ports:
+      - "8084:8080"  # Web UI port
+
+    environment:
+      # Logging
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=json
+
+      # Mend Renovate CE License
+      - MEND_RNV_LICENSE_KEY=${MEND_RNV_LICENSE_KEY}
+      - MEND_RNV_ACCEPT_TOS=Y
+
+      # GitLab Platform Configuration
+      - MEND_RNV_PLATFORM=gitlab
+      - MEND_RNV_ENDPOINT=http://gitlab/api/v4
+      - MEND_RNV_GITLAB_PAT=${GITLAB_RENOVATE_TOKEN}
+
+      # Webhook Configuration (for real-time updates)
+      - MEND_RNV_WEBHOOK_SECRET=${RENOVATE_WEBHOOK_SECRET}
+
+      # Admin API (for web UI management)
+      - MEND_RNV_ADMIN_API_ENABLED=true
+      - MEND_RNV_SERVER_API_SECRET=${RENOVATE_API_SECRET}
+
+      # Autodiscovery Configuration (ALL SERVICES)
+      - MEND_RNV_AUTODISCOVER=true
+      - MEND_RNV_AUTODISCOVER_FILTER=homelab/*,portfolio-hub/*,neural-lab/*
+
+      # Git Author
+      - MEND_RNV_GIT_AUTHOR=Renovate Bot <renovate@carl-cyber.tech>
+
+      # Host Rules - use internal GitLab endpoint and HTTP for git operations
+      - RENOVATE_HOST_RULES=[{"matchHost":"gitlab.carl-cyber.tech","hostType":"gitlab","endpoint":"http://gitlab","gitUrl":"http://gitlab/"}]
+
+      # Git SSH Command (set via entrypoint script)
+      - GIT_SSH_COMMAND=ssh -F /tmp/.ssh/config -i /tmp/.ssh/renovate_ssh_key -o UserKnownHostsFile=/tmp/.ssh/known_hosts
+
+      # Cron Schedule (optional - CE has built-in scheduler)
+      - MEND_RNV_CRON_JOB_SCHEDULER_ALL=0 * * * *  # Every hour
+
+      # SQLite Database (for job history and queue)
+      - MEND_RNV_SQLITE_FILE_PATH=/db/renovate-ce.sqlite
+
+    volumes:
+      # Database persistence
+      - /volume2/docker/renovate/db:/db
+
+      # Logs persistence
+      - /volume2/docker/renovate/logs:/logs
+
+      # Cache for faster processing
+      - /volume2/docker/renovate/cache:/tmp/renovate
+
+      # Entrypoint script
+      - /volume2/docker/renovate/config/entrypoint.sh:/entrypoint.sh:ro
+
+      # Renovate configuration
+      - /volume2/docker/renovate/config/config.js:/usr/src/app/config.js:ro
+
+      # SSH source files (mounted to /mnt to avoid NFS permission conflicts with ~/.ssh)
+      # Entrypoint script copies these to /tmp/.ssh with correct permissions
+      - /volume2/docker/renovate/config/renovate_ssh_key:/mnt/ssh-config/renovate_ssh_key:ro
+      - /volume2/docker/renovate/config/ssh_config:/mnt/ssh-config/config:ro
+      - /volume2/docker/renovate/config/known_hosts:/mnt/ssh-config/known_hosts:ro
+
+    labels:
+      # Traefik configuration for web UI
+      - "traefik.enable=true"
+      - "traefik.http.routers.renovate.rule=Host(`renovate.carl-cyber.tech`)"
+      - "traefik.http.routers.renovate.entrypoints=websecure"
+      - "traefik.http.routers.renovate.tls=true"
+      - "traefik.http.routers.renovate.tls.certresolver=cloudflare"
+      - "traefik.http.services.renovate.loadbalancer.server.port=8080"
+
+      # Authentik authentication middleware
+      - "traefik.http.routers.renovate.middlewares=authentik@file"
+
+      # Network configuration
+      - "traefik.docker.network=platform"
+
+    # Map external hostname to internal GitLab container IP
+    # This makes gitlab.carl-cyber.tech resolve to the GitLab container
+    # Safe: only affects DNS inside Renovate container
+    extra_hosts:
+      - "gitlab.carl-cyber.tech:172.19.0.12"
+
+    networks:
+      - platform
+
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  platform:
+    external: true
