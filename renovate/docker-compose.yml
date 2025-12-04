@@ -5,8 +5,6 @@ services:
     image: ghcr.io/mend/renovate-ce:13.0.0-full
     container_name: renovate
     restart: unless-stopped
-    entrypoint: ["/entrypoint.sh"]
-    command: ["node", "src/community.js"]
 
     ports:
       - "8084:8080"  # Web UI port
