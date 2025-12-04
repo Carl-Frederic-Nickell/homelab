@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   renovate:
-    image: ghcr.io/mend/renovate-ce:8.15.1-full
+    image: ghcr.io/mend/renovate-ce:13.0.0-full
     container_name: renovate
     restart: unless-stopped
     entrypoint: ["/entrypoint.sh"]
